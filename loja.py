@@ -278,70 +278,74 @@ class TipoFuncionario:
 
 
 # --- o roteiro da loja (o TF mantem esta saida identica) -----------------------
+pedidos_da_loja = Pedidos()
+
 cliente_ana = Cliente(
     Pessoa("Ana Souza", Cpf("12345678901"), Email("ana@mail.com")),
     Endereco("Rua das Flores, 10", "Sorocaba", Cep("18010000")),
     TipoVip(),
 )
+pedido_da_ana = pedidos_da_loja.criar_pedido(1, cliente_ana)
+produto_caderno = Produto("Caderno", Dinheiro(1550))
+pedido_da_ana.adicionar_item(produto_caderno, 2)
+produto_caneta = Produto("Caneta", Dinheiro(250))
+pedido_da_ana.adicionar_item(produto_caneta, 5)
+
 try:
     cliente_bruno = Cliente(
         Pessoa("Bruno Lima", Cpf("123"), Email("bruno@mail.com")),
         Endereco("Av. Central, 200", "Votorantim", Cep("18110000")),
         TipoNormal(),
     )
+    pedidos_da_loja.criar_pedido(2, cliente_bruno)
 except ValueError as erro:
     print("pedido 2 recusado: %s" % erro)
+
+pedido_da_ana_segundo = pedidos_da_loja.criar_pedido(3, cliente_ana)
+produto_livro = Produto("Livro", Dinheiro(8950))
+pedido_da_ana_segundo.adicionar_item(produto_livro, 1)
+
 try:
     cliente_carla = Cliente(
         Pessoa("Carla Dias", Cpf("98765432100"), Email("carla.mail.com")),
         Endereco("Rua do Sol, 55", "Sorocaba", Cep("18020000")),
         TipoFuncionario(),
     )
+    pedidos_da_loja.criar_pedido(4, cliente_carla)
 except ValueError as erro:
     print("pedido 4 recusado: %s" % erro)
+
 cliente_diego = Cliente(
     Pessoa("Diego Rocha", Cpf("11122233344"), Email("diego@mail.com")),
     Endereco("Rua Nova, 7", "Itu", Cep("13300000")),
     TipoNormal(),
 )
+pedido_do_diego = pedidos_da_loja.criar_pedido(5, cliente_diego)
+
 cliente_eva = Cliente(
     Pessoa("Eva Nunes", Cpf("55566677788"), Email("eva@mail.com")),
     Endereco("Alameda Azul, 1", "Itu", Cep("13300001")),
     TipoFuncionario(),
 )
+pedido_da_eva = pedidos_da_loja.criar_pedido(6, cliente_eva)
+produto_fone = Produto("Fone", Dinheiro(6000))
+pedido_da_eva.adicionar_item(produto_fone, 1)
+
 try:
     cliente_fabio = Cliente(
         Pessoa("Fabio Costa", Cpf("99988877766"), Email("fabio@mail.com")),
         Endereco("Rua Velha, 3", "Itu", Cep("123")),
         TipoNormal(),
     )
+    pedidos_da_loja.criar_pedido(7, cliente_fabio)
 except ValueError as erro:
     print("pedido 7 recusado: %s" % erro)
+
 cliente_gil = Cliente(
     Pessoa("Gil Alves", Cpf("44455566677"), Email("gil@mail.com")),
     Endereco("Rua do Meio, 9", "Sorocaba", Cep("18030000")),
     TipoNormal(),
 )
-
-produto_caderno = Produto("Caderno", Dinheiro(1550))
-produto_caneta = Produto("Caneta", Dinheiro(250))
-produto_livro = Produto("Livro", Dinheiro(8950))
-produto_fone = Produto("Fone", Dinheiro(6000))
-
-pedidos_da_loja = Pedidos()
-
-pedido_da_ana = pedidos_da_loja.criar_pedido(1, cliente_ana)
-pedido_da_ana.adicionar_item(produto_caderno, 2)
-pedido_da_ana.adicionar_item(produto_caneta, 5)
-
-pedido_da_ana_segundo = pedidos_da_loja.criar_pedido(3, cliente_ana)
-pedido_da_ana_segundo.adicionar_item(produto_livro, 1)
-
-pedido_do_diego = pedidos_da_loja.criar_pedido(5, cliente_diego)
-
-pedido_da_eva = pedidos_da_loja.criar_pedido(6, cliente_eva)
-pedido_da_eva.adicionar_item(produto_fone, 1)
-
 pedido_do_gil = pedidos_da_loja.criar_pedido(8, cliente_gil)
 pedido_do_gil.adicionar_item(produto_fone, 2)
 
