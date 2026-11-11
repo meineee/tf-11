@@ -2,7 +2,87 @@
 # Object Calisthenics. A missao e consertar SEM mudar o que ele imprime.
 # Rodar no terminal: python3 loja_feia.py
 
+from decimal import Decimal, ROUND_HALF_UP
+
+
 pedidos = []                   # todos os pedidos da loja: lista solta, global
+
+
+class Cpf:
+    def __init__(self, valor):
+        if len(valor) != 11:
+            raise ValueError("cpf invalido")
+        self.valor = valor
+
+
+class Email:
+    def __init__(self, valor):
+        if len(valor) == 0:
+            raise ValueError("email vazio")
+        if "@" not in valor:
+            raise ValueError("email invalido")
+        self.valor = valor
+
+
+class Cep:
+    def __init__(self, valor):
+        if len(valor) != 8:
+            raise ValueError("cep invalido")
+        self.valor = valor
+
+
+class Dinheiro:
+    def __init__(self, centavos):
+        if not isinstance(centavos, int):
+            raise TypeError("centavos deve ser um numero inteiro")
+        self.centavos = centavos
+
+    def somar(self, outro_valor):
+        return Dinheiro(self.centavos + outro_valor.centavos)
+
+    def subtrair(self, outro_valor):
+        return Dinheiro(self.centavos - outro_valor.centavos)
+
+    def multiplicar(self, quantidade):
+        return Dinheiro(self.centavos * quantidade)
+
+    def calcular_percentual(self, percentual):
+        valor_calculado = (
+            Decimal(self.centavos) * Decimal(str(percentual)) / Decimal(100)
+        )
+        return Dinheiro(
+            int(
+                valor_calculado.quantize(
+                    Decimal("1"), rounding=ROUND_HALF_UP
+                )
+            )
+        )
+
+    def __str__(self):
+        sinal = "-" if self.centavos < 0 else ""
+        valor_absoluto = abs(self.centavos)
+        return "R$ %s%d.%02d" % (
+            sinal,
+            valor_absoluto // 100,
+            valor_absoluto % 100,
+        )
+
+
+class Status:
+    def __init__(self, codigo):
+        if codigo not in ("A", "P", "C"):
+            raise ValueError("status invalido")
+        self.codigo = codigo
+
+    def descrever(self):
+        if self.codigo == "A":
+            return "aberto"
+        elif self.codigo == "P":
+            return "pago"
+        return "cancelado"
+
+    def esta_aberto(self):
+        return self.codigo == "A"
 
 
 class Pedido:
@@ -10,7 +90,7 @@ class Pedido:
         self.numero_do_pedido = numero_do_pedido
         self.cliente = cliente
         self.itens = []
-        self.status = "A"     # A = aberto, P = pago, C = cancelado
+        self.status = Status("A")
 
     def obter_status(self):
         return self.status
@@ -23,19 +103,19 @@ class Cliente:
     def __init__(
         self,
         nome_do_cliente,
-        cpf_do_cliente,
         email_do_cliente,
+        cpf_do_cliente,
         rua_do_cliente,
         cidade_do_cliente,
         codigo_postal,
         tipo_de_cliente,
     ):
         self.nome_do_cliente = nome_do_cliente
-        self.cpf_do_cliente = cpf_do_cliente
-        self.email_do_cliente = email_do_cliente
+        self.email_do_cliente = Email(email_do_cliente)
+        self.cpf_do_cliente = Cpf(cpf_do_cliente)
         self.rua_do_cliente = rua_do_cliente
         self.cidade_do_cliente = cidade_do_cliente
-        self.codigo_postal = codigo_postal
+        self.codigo_postal = Cep(codigo_postal)
         self.tipo_de_cliente = tipo_de_cliente
 
 
@@ -51,31 +131,10 @@ class ItemDoPedido:
         self.quantidade = quantidade
 
 
-def validar_dados_do_cliente(cliente):
-    if len(cliente.email_do_cliente) > 0:
-        if "@" in cliente.email_do_cliente:
-            if len(cliente.cpf_do_cliente) == 11:
-                if len(cliente.codigo_postal) == 8:
-                    return "ok"
-                else:
-                    return "cep invalido"
-            else:
-                return "cpf invalido"
-        else:
-            return "email invalido"
-    else:
-        return "email vazio"
-
-
 def criar_pedido(numero_do_pedido, cliente):
-    resultado_da_validacao = validar_dados_do_cliente(cliente)
-    if resultado_da_validacao != "ok":
-        print("pedido", numero_do_pedido, "recusado:", resultado_da_validacao)
-        return None
-    else:
-        pedido = Pedido(numero_do_pedido, cliente)
-        pedidos.append(pedido)
-        return pedido
+    pedido = Pedido(numero_do_pedido, cliente)
+    pedidos.append(pedido)
+    return pedido
 
 
 def adicionar_item(pedido, produto, quantidade):
@@ -83,34 +142,36 @@ def adicionar_item(pedido, produto, quantidade):
 
 
 def calcular_total(pedido):
-    valor_total = 0
+    valor_total = Dinheiro(0)
     for item in pedido.itens:
-        valor_total = (
-            valor_total + item.quantidade * item.produto.preco_unitario
+        valor_total = valor_total.somar(
+            item.produto.preco_unitario.multiplicar(item.quantidade)
         )
     return valor_total
 
 
 def calcular_desconto(tipo_de_cliente, valor_total):
     if tipo_de_cliente == "V":
-        valor_do_desconto = valor_total * 0.10
+        percentual_do_desconto = 10
     elif tipo_de_cliente == "F":
-        valor_do_desconto = valor_total * 0.20
+        percentual_do_desconto = 20
     else:
-        valor_do_desconto = 0
-    return valor_do_desconto
+        percentual_do_desconto = 0
+    return valor_total.calcular_percentual(percentual_do_desconto)
 
 
 def calcular_valor_a_pagar(pedido):
-    return calcular_total(pedido) - calcular_desconto(
-        pedido.cliente.tipo_de_cliente, calcular_total(pedido)
+    return calcular_total(pedido).subtrair(
+        calcular_desconto(
+            pedido.cliente.tipo_de_cliente, calcular_total(pedido)
+        )
     )
 
 
 def pagar_pedido(pedido):
-    if pedido.obter_status() == "A":
+    if pedido.obter_status().esta_aberto():
         if len(pedido.itens) > 0:
-            pedido.definir_status("P")
+            pedido.definir_status(Status("P"))
             return True
         else:
             return False
@@ -119,20 +180,11 @@ def pagar_pedido(pedido):
 
 
 def cancelar_pedido(pedido):
-    if pedido.obter_status() == "A":
-        pedido.definir_status("C")
+    if pedido.obter_status().esta_aberto():
+        pedido.definir_status(Status("C"))
         return True
     else:
         return False
-
-
-def descrever_status(status):
-    if status == "A":
-        return "aberto"
-    elif status == "P":
-        return "pago"
-    else:
-        return "cancelado"
 
 
 def gerar_relatorio():
@@ -145,19 +197,19 @@ def gerar_relatorio():
             "-",
             pedido.cliente.cidade_do_cliente,
         )
-        print("  status:", descrever_status(pedido.obter_status()))
+        print("  status:", pedido.obter_status().descrever())
         for item in pedido.itens:
             print(
                 "  ",
                 item.quantidade,
                 "x",
                 item.produto.nome_do_produto,
-                "= R$ %.2f"
-                % (item.quantidade * item.produto.preco_unitario),
+                "=",
+                item.produto.preco_unitario.multiplicar(item.quantidade),
             )
         if len(pedido.itens) > 0:
             print(
-                "  total: R$ %.2f | desconto: R$ %.2f | a pagar: R$ %.2f"
+                "  total: %s | desconto: %s | a pagar: %s"
                 % (
                     calcular_total(pedido),
                     calcular_desconto(
@@ -170,11 +222,11 @@ def gerar_relatorio():
 
 
 def calcular_total_arrecadado():
-    valor_total_arrecadado = 0
+    valor_total_arrecadado = Dinheiro(0)
     for pedido in pedidos:
-        if pedido.obter_status() == "P":
-            valor_total_arrecadado = (
-                valor_total_arrecadado + calcular_valor_a_pagar(pedido)
+        if pedido.obter_status().codigo == "P":
+            valor_total_arrecadado = valor_total_arrecadado.somar(
+                calcular_valor_a_pagar(pedido)
             )
     return valor_total_arrecadado
 
@@ -182,7 +234,7 @@ def calcular_total_arrecadado():
 def contar_pedidos_abertos():
     quantidade_de_pedidos_abertos = 0
     for pedido in pedidos:
-        if pedido.obter_status() == "A":
+        if pedido.obter_status().esta_aberto():
             quantidade_de_pedidos_abertos = quantidade_de_pedidos_abertos + 1
     return quantidade_de_pedidos_abertos
 
@@ -190,35 +242,41 @@ def contar_pedidos_abertos():
 # --- o roteiro da loja (o TF mantem esta saida identica) -----------------------
 cliente_ana = Cliente(
     "Ana Souza",
-    "12345678901",
     "ana@mail.com",
+    "12345678901",
     "Rua das Flores, 10",
     "Sorocaba",
     "18010000",
     "V",
 )
-cliente_bruno = Cliente(
-    "Bruno Lima",
-    "123",
-    "bruno@mail.com",
-    "Av. Central, 200",
-    "Votorantim",
-    "18110000",
-    "N",
-)
-cliente_carla = Cliente(
-    "Carla Dias",
-    "98765432100",
-    "carla.mail.com",
-    "Rua do Sol, 55",
-    "Sorocaba",
-    "18020000",
-    "F",
-)
+try:
+    cliente_bruno = Cliente(
+        "Bruno Lima",
+        "bruno@mail.com",
+        "123",
+        "Av. Central, 200",
+        "Votorantim",
+        "18110000",
+        "N",
+    )
+except ValueError as erro:
+    print("pedido 2 recusado: %s" % erro)
+try:
+    cliente_carla = Cliente(
+        "Carla Dias",
+        "carla.mail.com",
+        "98765432100",
+        "Rua do Sol, 55",
+        "Sorocaba",
+        "18020000",
+        "F",
+    )
+except ValueError as erro:
+    print("pedido 4 recusado: %s" % erro)
 cliente_diego = Cliente(
     "Diego Rocha",
-    "11122233344",
     "diego@mail.com",
+    "11122233344",
     "Rua Nova, 7",
     "Itu",
     "13300000",
@@ -226,54 +284,51 @@ cliente_diego = Cliente(
 )
 cliente_eva = Cliente(
     "Eva Nunes",
-    "55566677788",
     "eva@mail.com",
+    "55566677788",
     "Alameda Azul, 1",
     "Itu",
     "13300001",
     "F",
 )
-cliente_fabio = Cliente(
-    "Fabio Costa",
-    "99988877766",
-    "fabio@mail.com",
-    "Rua Velha, 3",
-    "Itu",
-    "123",
-    "N",
-)
+try:
+    cliente_fabio = Cliente(
+        "Fabio Costa",
+        "fabio@mail.com",
+        "99988877766",
+        "Rua Velha, 3",
+        "Itu",
+        "123",
+        "N",
+    )
+except ValueError as erro:
+    print("pedido 7 recusado: %s" % erro)
 cliente_gil = Cliente(
     "Gil Alves",
-    "44455566677",
     "gil@mail.com",
+    "44455566677",
     "Rua do Meio, 9",
     "Sorocaba",
     "18030000",
     "N",
 )
 
-produto_caderno = Produto("Caderno", 15.5)
-produto_caneta = Produto("Caneta", 2.5)
-produto_livro = Produto("Livro", 89.5)
-produto_fone = Produto("Fone", 60.0)
+produto_caderno = Produto("Caderno", Dinheiro(1550))
+produto_caneta = Produto("Caneta", Dinheiro(250))
+produto_livro = Produto("Livro", Dinheiro(8950))
+produto_fone = Produto("Fone", Dinheiro(6000))
 
 pedido_da_ana = criar_pedido(1, cliente_ana)
 adicionar_item(pedido_da_ana, produto_caderno, 2)
 adicionar_item(pedido_da_ana, produto_caneta, 5)
 
-criar_pedido(2, cliente_bruno)
-
 pedido_da_ana_segundo = criar_pedido(3, cliente_ana)
 adicionar_item(pedido_da_ana_segundo, produto_livro, 1)
-
-criar_pedido(4, cliente_carla)
 
 pedido_do_diego = criar_pedido(5, cliente_diego)
 
 pedido_da_eva = criar_pedido(6, cliente_eva)
 adicionar_item(pedido_da_eva, produto_fone, 1)
-
-criar_pedido(7, cliente_fabio)
 
 pedido_do_gil = criar_pedido(8, cliente_gil)
 adicionar_item(pedido_do_gil, produto_fone, 2)
@@ -286,5 +341,5 @@ print("cancelar 5:", cancelar_pedido(pedido_do_diego))
 print("cancelar 1:", cancelar_pedido(pedido_da_ana))
 
 gerar_relatorio()
-print("arrecadado: R$ %.2f" % calcular_total_arrecadado())
+print("arrecadado:", calcular_total_arrecadado())
 print("abertos:", contar_pedidos_abertos())
