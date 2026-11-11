@@ -5,9 +5,6 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 
-pedidos = []                   # todos os pedidos da loja: lista solta, global
-
-
 class Cpf:
     def __init__(self, valor):
         if len(valor) != 11:
@@ -86,10 +83,9 @@ class Status:
 
 
 class Pedido:
-    def __init__(self, numero_do_pedido, cliente):
-        self.numero_do_pedido = numero_do_pedido
+    def __init__(self, cliente):
         self.cliente = cliente
-        self.itens = []
+        self.itens = ItensDoPedido()
         self.status = Status("A")
 
     def obter_status(self):
@@ -131,23 +127,87 @@ class ItemDoPedido:
         self.quantidade = quantidade
 
 
-def criar_pedido(numero_do_pedido, cliente):
-    pedido = Pedido(numero_do_pedido, cliente)
-    pedidos.append(pedido)
-    return pedido
+class ItensDoPedido:
+    def __init__(self):
+        self._itens = []
+
+    def adicionar(self, produto, quantidade):
+        self._itens.append(ItemDoPedido(produto, quantidade))
+
+    def esta_vazia(self):
+        return len(self._itens) == 0
+
+    def calcular_total(self):
+        valor_total = Dinheiro(0)
+        for item in self._itens:
+            valor_total = valor_total.somar(
+                item.produto.preco_unitario.multiplicar(item.quantidade)
+            )
+        return valor_total
+
+    def imprimir_itens(self):
+        for item in self._itens:
+            print(
+                "  ",
+                item.quantidade,
+                "x",
+                item.produto.nome_do_produto,
+                "=",
+                item.produto.preco_unitario.multiplicar(item.quantidade),
+            )
 
 
-def adicionar_item(pedido, produto, quantidade):
-    pedido.itens.append(ItemDoPedido(produto, quantidade))
+class Pedidos:
+    def __init__(self):
+        self._pedidos = {}
 
+    def criar_pedido(self, numero_do_pedido, cliente):
+        pedido = Pedido(cliente)
+        self._pedidos[numero_do_pedido] = pedido
+        return pedido
 
-def calcular_total(pedido):
-    valor_total = Dinheiro(0)
-    for item in pedido.itens:
-        valor_total = valor_total.somar(
-            item.produto.preco_unitario.multiplicar(item.quantidade)
-        )
-    return valor_total
+    def imprimir_relatorio(self):
+        for numero_do_pedido, pedido in self._pedidos.items():
+            print(
+                "Pedido",
+                numero_do_pedido,
+                "-",
+                pedido.cliente.nome_do_cliente,
+                "-",
+                pedido.cliente.cidade_do_cliente,
+            )
+            print("  status:", pedido.obter_status().descrever())
+            pedido.itens.imprimir_itens()
+            if not pedido.itens.esta_vazia():
+                print(
+                    "  total: %s | desconto: %s | a pagar: %s"
+                    % (
+                        pedido.itens.calcular_total(),
+                        calcular_desconto(
+                            pedido.cliente.tipo_de_cliente,
+                            pedido.itens.calcular_total(),
+                        ),
+                        calcular_valor_a_pagar(pedido),
+                    )
+                )
+
+    def calcular_total_arrecadado(self):
+        valor_total_arrecadado = Dinheiro(0)
+        for pedido in self._pedidos.values():
+            if pedido.obter_status().codigo == "P":
+                valor_total_arrecadado = valor_total_arrecadado.somar(
+                    calcular_valor_a_pagar(pedido)
+                )
+        return valor_total_arrecadado
+
+    def contar_pedidos_abertos(self):
+        quantidade_de_pedidos_abertos = 0
+        for pedido in self._pedidos.values():
+            if pedido.obter_status().esta_aberto():
+                quantidade_de_pedidos_abertos = (
+                    quantidade_de_pedidos_abertos + 1
+                )
+        return quantidade_de_pedidos_abertos
 
 
 def calcular_desconto(tipo_de_cliente, valor_total):
@@ -161,16 +221,16 @@ def calcular_desconto(tipo_de_cliente, valor_total):
 
 
 def calcular_valor_a_pagar(pedido):
-    return calcular_total(pedido).subtrair(
+    return pedido.itens.calcular_total().subtrair(
         calcular_desconto(
-            pedido.cliente.tipo_de_cliente, calcular_total(pedido)
+            pedido.cliente.tipo_de_cliente, pedido.itens.calcular_total()
         )
     )
 
 
 def pagar_pedido(pedido):
     if pedido.obter_status().esta_aberto():
-        if len(pedido.itens) > 0:
+        if not pedido.itens.esta_vazia():
             pedido.definir_status(Status("P"))
             return True
         else:
@@ -185,58 +245,6 @@ def cancelar_pedido(pedido):
         return True
     else:
         return False
-
-
-def gerar_relatorio():
-    for pedido in pedidos:
-        print(
-            "Pedido",
-            pedido.numero_do_pedido,
-            "-",
-            pedido.cliente.nome_do_cliente,
-            "-",
-            pedido.cliente.cidade_do_cliente,
-        )
-        print("  status:", pedido.obter_status().descrever())
-        for item in pedido.itens:
-            print(
-                "  ",
-                item.quantidade,
-                "x",
-                item.produto.nome_do_produto,
-                "=",
-                item.produto.preco_unitario.multiplicar(item.quantidade),
-            )
-        if len(pedido.itens) > 0:
-            print(
-                "  total: %s | desconto: %s | a pagar: %s"
-                % (
-                    calcular_total(pedido),
-                    calcular_desconto(
-                        pedido.cliente.tipo_de_cliente,
-                        calcular_total(pedido),
-                    ),
-                    calcular_valor_a_pagar(pedido),
-                )
-            )
-
-
-def calcular_total_arrecadado():
-    valor_total_arrecadado = Dinheiro(0)
-    for pedido in pedidos:
-        if pedido.obter_status().codigo == "P":
-            valor_total_arrecadado = valor_total_arrecadado.somar(
-                calcular_valor_a_pagar(pedido)
-            )
-    return valor_total_arrecadado
-
-
-def contar_pedidos_abertos():
-    quantidade_de_pedidos_abertos = 0
-    for pedido in pedidos:
-        if pedido.obter_status().esta_aberto():
-            quantidade_de_pedidos_abertos = quantidade_de_pedidos_abertos + 1
-    return quantidade_de_pedidos_abertos
 
 
 # --- o roteiro da loja (o TF mantem esta saida identica) -----------------------
@@ -318,20 +326,22 @@ produto_caneta = Produto("Caneta", Dinheiro(250))
 produto_livro = Produto("Livro", Dinheiro(8950))
 produto_fone = Produto("Fone", Dinheiro(6000))
 
-pedido_da_ana = criar_pedido(1, cliente_ana)
-adicionar_item(pedido_da_ana, produto_caderno, 2)
-adicionar_item(pedido_da_ana, produto_caneta, 5)
+pedidos_da_loja = Pedidos()
 
-pedido_da_ana_segundo = criar_pedido(3, cliente_ana)
-adicionar_item(pedido_da_ana_segundo, produto_livro, 1)
+pedido_da_ana = pedidos_da_loja.criar_pedido(1, cliente_ana)
+pedido_da_ana.itens.adicionar(produto_caderno, 2)
+pedido_da_ana.itens.adicionar(produto_caneta, 5)
 
-pedido_do_diego = criar_pedido(5, cliente_diego)
+pedido_da_ana_segundo = pedidos_da_loja.criar_pedido(3, cliente_ana)
+pedido_da_ana_segundo.itens.adicionar(produto_livro, 1)
 
-pedido_da_eva = criar_pedido(6, cliente_eva)
-adicionar_item(pedido_da_eva, produto_fone, 1)
+pedido_do_diego = pedidos_da_loja.criar_pedido(5, cliente_diego)
 
-pedido_do_gil = criar_pedido(8, cliente_gil)
-adicionar_item(pedido_do_gil, produto_fone, 2)
+pedido_da_eva = pedidos_da_loja.criar_pedido(6, cliente_eva)
+pedido_da_eva.itens.adicionar(produto_fone, 1)
+
+pedido_do_gil = pedidos_da_loja.criar_pedido(8, cliente_gil)
+pedido_do_gil.itens.adicionar(produto_fone, 2)
 
 print("pagar 1:", pagar_pedido(pedido_da_ana))
 print("pagar 3:", pagar_pedido(pedido_da_ana_segundo))
@@ -340,6 +350,6 @@ print("pagar 6:", pagar_pedido(pedido_da_eva))
 print("cancelar 5:", cancelar_pedido(pedido_do_diego))
 print("cancelar 1:", cancelar_pedido(pedido_da_ana))
 
-gerar_relatorio()
-print("arrecadado:", calcular_total_arrecadado())
-print("abertos:", contar_pedidos_abertos())
+pedidos_da_loja.imprimir_relatorio()
+print("arrecadado:", pedidos_da_loja.calcular_total_arrecadado())
+print("abertos:", pedidos_da_loja.contar_pedidos_abertos())
