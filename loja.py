@@ -95,23 +95,24 @@ class Pedido:
         self.status = novo_status
 
 
+class Pessoa:
+    def __init__(self, nome, cpf, email):
+        self.nome = nome
+        self.cpf = cpf
+        self.email = email
+
+
+class Endereco:
+    def __init__(self, rua, cidade, cep):
+        self.rua = rua
+        self.cidade = cidade
+        self.cep = cep
+
+
 class Cliente:
-    def __init__(
-        self,
-        nome_do_cliente,
-        email_do_cliente,
-        cpf_do_cliente,
-        rua_do_cliente,
-        cidade_do_cliente,
-        codigo_postal,
-        tipo_de_cliente,
-    ):
-        self.nome_do_cliente = nome_do_cliente
-        self.email_do_cliente = Email(email_do_cliente)
-        self.cpf_do_cliente = Cpf(cpf_do_cliente)
-        self.rua_do_cliente = rua_do_cliente
-        self.cidade_do_cliente = cidade_do_cliente
-        self.codigo_postal = Cep(codigo_postal)
+    def __init__(self, pessoa, endereco, tipo_de_cliente):
+        self.pessoa = pessoa
+        self.endereco = endereco
         self.tipo_de_cliente = tipo_de_cliente
 
 
@@ -172,9 +173,9 @@ class Pedidos:
                 "Pedido",
                 numero_do_pedido,
                 "-",
-                pedido.cliente.nome_do_cliente,
+                pedido.cliente.pessoa.nome,
                 "-",
-                pedido.cliente.cidade_do_cliente,
+                pedido.cliente.endereco.cidade,
             )
             print("  status:", pedido.obter_status().descrever())
             pedido.itens.imprimir_itens()
@@ -249,75 +250,47 @@ def cancelar_pedido(pedido):
 
 # --- o roteiro da loja (o TF mantem esta saida identica) -----------------------
 cliente_ana = Cliente(
-    "Ana Souza",
-    "ana@mail.com",
-    "12345678901",
-    "Rua das Flores, 10",
-    "Sorocaba",
-    "18010000",
+    Pessoa("Ana Souza", Cpf("12345678901"), Email("ana@mail.com")),
+    Endereco("Rua das Flores, 10", "Sorocaba", Cep("18010000")),
     "V",
 )
 try:
     cliente_bruno = Cliente(
-        "Bruno Lima",
-        "bruno@mail.com",
-        "123",
-        "Av. Central, 200",
-        "Votorantim",
-        "18110000",
+        Pessoa("Bruno Lima", Cpf("123"), Email("bruno@mail.com")),
+        Endereco("Av. Central, 200", "Votorantim", Cep("18110000")),
         "N",
     )
 except ValueError as erro:
     print("pedido 2 recusado: %s" % erro)
 try:
     cliente_carla = Cliente(
-        "Carla Dias",
-        "carla.mail.com",
-        "98765432100",
-        "Rua do Sol, 55",
-        "Sorocaba",
-        "18020000",
+        Pessoa("Carla Dias", Cpf("98765432100"), Email("carla.mail.com")),
+        Endereco("Rua do Sol, 55", "Sorocaba", Cep("18020000")),
         "F",
     )
 except ValueError as erro:
     print("pedido 4 recusado: %s" % erro)
 cliente_diego = Cliente(
-    "Diego Rocha",
-    "diego@mail.com",
-    "11122233344",
-    "Rua Nova, 7",
-    "Itu",
-    "13300000",
+    Pessoa("Diego Rocha", Cpf("11122233344"), Email("diego@mail.com")),
+    Endereco("Rua Nova, 7", "Itu", Cep("13300000")),
     "N",
 )
 cliente_eva = Cliente(
-    "Eva Nunes",
-    "eva@mail.com",
-    "55566677788",
-    "Alameda Azul, 1",
-    "Itu",
-    "13300001",
+    Pessoa("Eva Nunes", Cpf("55566677788"), Email("eva@mail.com")),
+    Endereco("Alameda Azul, 1", "Itu", Cep("13300001")),
     "F",
 )
 try:
     cliente_fabio = Cliente(
-        "Fabio Costa",
-        "fabio@mail.com",
-        "99988877766",
-        "Rua Velha, 3",
-        "Itu",
-        "123",
+        Pessoa("Fabio Costa", Cpf("99988877766"), Email("fabio@mail.com")),
+        Endereco("Rua Velha, 3", "Itu", Cep("123")),
         "N",
     )
 except ValueError as erro:
     print("pedido 7 recusado: %s" % erro)
 cliente_gil = Cliente(
-    "Gil Alves",
-    "gil@mail.com",
-    "44455566677",
-    "Rua do Meio, 9",
-    "Sorocaba",
-    "18030000",
+    Pessoa("Gil Alves", Cpf("44455566677"), Email("gil@mail.com")),
+    Endereco("Rua do Meio, 9", "Sorocaba", Cep("18030000")),
     "N",
 )
 
