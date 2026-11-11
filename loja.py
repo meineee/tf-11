@@ -56,13 +56,14 @@ class Dinheiro:
         )
 
     def __str__(self):
-        sinal = "-" if self.centavos < 0 else ""
         valor_absoluto = abs(self.centavos)
-        return "R$ %s%d.%02d" % (
-            sinal,
+        texto_do_valor = "R$ %d.%02d" % (
             valor_absoluto // 100,
             valor_absoluto % 100,
         )
+        if self.centavos >= 0:
+            return texto_do_valor
+        return "R$ -" + texto_do_valor[3:]
 
 
 class Status:
@@ -72,11 +73,12 @@ class Status:
         self._codigo = codigo
 
     def descrever(self):
-        if self._codigo == "A":
-            return "aberto"
-        elif self._codigo == "P":
-            return "pago"
-        return "cancelado"
+        descricoes = {
+            "A": "aberto",
+            "P": "pago",
+            "C": "cancelado",
+        }
+        return descricoes[self._codigo]
 
     def esta_aberto(self):
         return self._codigo == "A"
@@ -95,10 +97,13 @@ class Pedido:
         self._itens.adicionar(produto, quantidade)
 
     def pagar(self):
-        if not self.esta_aberto() or self._itens.esta_vazia():
+        if not self.pode_ser_pago():
             return False
         self._status = Status("P")
         return True
+
+    def pode_ser_pago(self):
+        return self.esta_aberto() and not self._itens.esta_vazia()
 
     def cancelar(self):
         if not self.esta_aberto():
@@ -114,25 +119,25 @@ class Pedido:
 
     def calcular_valor_a_pagar(self):
         valor_total = self._itens.calcular_total()
-        valor_do_desconto = calcular_desconto(
-            self._cliente.tipo_de_cliente, valor_total
-        )
+        valor_do_desconto = self._cliente.desconto_sobre(valor_total)
         return valor_total.subtrair(valor_do_desconto)
 
     def imprimir_relatorio(self, numero_do_pedido):
         self._cliente.imprimir_identificacao(numero_do_pedido)
         print("  status:", self._status.descrever())
         self._itens.imprimir_itens()
-        if not self._itens.esta_vazia():
-            valor_total = self._itens.calcular_total()
-            valor_do_desconto = calcular_desconto(
-                self._cliente.tipo_de_cliente, valor_total
-            )
-            valor_a_pagar = valor_total.subtrair(valor_do_desconto)
-            print(
-                "  total: %s | desconto: %s | a pagar: %s"
-                % (valor_total, valor_do_desconto, valor_a_pagar)
-            )
+        if self._itens.esta_vazia():
+            return
+        self.imprimir_totais()
+
+    def imprimir_totais(self):
+        valor_total = self._itens.calcular_total()
+        valor_do_desconto = self._cliente.desconto_sobre(valor_total)
+        valor_a_pagar = valor_total.subtrair(valor_do_desconto)
+        print(
+            "  total: %s | desconto: %s | a pagar: %s"
+            % (valor_total, valor_do_desconto, valor_a_pagar)
+        )
 
 
 class Pessoa:
@@ -165,6 +170,9 @@ class Cliente:
         print("Pedido", numero_do_pedido, "-", end=" ")
         self.pessoa.imprimir_nome()
         self.endereco.imprimir_cidade()
+
+    def desconto_sobre(self, valor):
+        return self.tipo_de_cliente.desconto_sobre(valor)
 
 
 class Produto:
@@ -236,43 +244,50 @@ class Pedidos:
 
     def calcular_total_arrecadado(self):
         valor_total_arrecadado = Dinheiro(0)
-        for pedido in self._pedidos.values():
-            if pedido.esta_pago():
-                valor_a_pagar = pedido.calcular_valor_a_pagar()
-                valor_total_arrecadado = valor_total_arrecadado.somar(valor_a_pagar)
+        pedidos_pagos = [
+            pedido for pedido in self._pedidos.values() if pedido.esta_pago()
+        ]
+        for pedido in pedidos_pagos:
+            valor_a_pagar = pedido.calcular_valor_a_pagar()
+            valor_total_arrecadado = valor_total_arrecadado.somar(
+                valor_a_pagar
+            )
         return valor_total_arrecadado
 
     def contar_pedidos_abertos(self):
-        quantidade_de_pedidos_abertos = 0
-        for pedido in self._pedidos.values():
-            if pedido.esta_aberto():
-                quantidade_de_pedidos_abertos = (
-                    quantidade_de_pedidos_abertos + 1
-                )
-        return quantidade_de_pedidos_abertos
+        return sum(
+            1
+            for pedido in self._pedidos.values()
+            if pedido.esta_aberto()
+        )
 
 
-def calcular_desconto(tipo_de_cliente, valor_total):
-    if tipo_de_cliente == "V":
-        percentual_do_desconto = 10
-    elif tipo_de_cliente == "F":
-        percentual_do_desconto = 20
-    else:
-        percentual_do_desconto = 0
-    return valor_total.calcular_percentual(percentual_do_desconto)
+class TipoNormal:
+    def desconto_sobre(self, valor):
+        return valor.calcular_percentual(0)
+
+
+class TipoVip:
+    def desconto_sobre(self, valor):
+        return valor.calcular_percentual(10)
+
+
+class TipoFuncionario:
+    def desconto_sobre(self, valor):
+        return valor.calcular_percentual(20)
 
 
 # --- o roteiro da loja (o TF mantem esta saida identica) -----------------------
 cliente_ana = Cliente(
     Pessoa("Ana Souza", Cpf("12345678901"), Email("ana@mail.com")),
     Endereco("Rua das Flores, 10", "Sorocaba", Cep("18010000")),
-    "V",
+    TipoVip(),
 )
 try:
     cliente_bruno = Cliente(
         Pessoa("Bruno Lima", Cpf("123"), Email("bruno@mail.com")),
         Endereco("Av. Central, 200", "Votorantim", Cep("18110000")),
-        "N",
+        TipoNormal(),
     )
 except ValueError as erro:
     print("pedido 2 recusado: %s" % erro)
@@ -280,32 +295,32 @@ try:
     cliente_carla = Cliente(
         Pessoa("Carla Dias", Cpf("98765432100"), Email("carla.mail.com")),
         Endereco("Rua do Sol, 55", "Sorocaba", Cep("18020000")),
-        "F",
+        TipoFuncionario(),
     )
 except ValueError as erro:
     print("pedido 4 recusado: %s" % erro)
 cliente_diego = Cliente(
     Pessoa("Diego Rocha", Cpf("11122233344"), Email("diego@mail.com")),
     Endereco("Rua Nova, 7", "Itu", Cep("13300000")),
-    "N",
+    TipoNormal(),
 )
 cliente_eva = Cliente(
     Pessoa("Eva Nunes", Cpf("55566677788"), Email("eva@mail.com")),
     Endereco("Alameda Azul, 1", "Itu", Cep("13300001")),
-    "F",
+    TipoFuncionario(),
 )
 try:
     cliente_fabio = Cliente(
         Pessoa("Fabio Costa", Cpf("99988877766"), Email("fabio@mail.com")),
         Endereco("Rua Velha, 3", "Itu", Cep("123")),
-        "N",
+        TipoNormal(),
     )
 except ValueError as erro:
     print("pedido 7 recusado: %s" % erro)
 cliente_gil = Cliente(
     Pessoa("Gil Alves", Cpf("44455566677"), Email("gil@mail.com")),
     Endereco("Rua do Meio, 9", "Sorocaba", Cep("18030000")),
-    "N",
+    TipoNormal(),
 )
 
 produto_caderno = Produto("Caderno", Dinheiro(1550))
